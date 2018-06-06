@@ -1,9 +1,12 @@
 import pandas as pd
 import numpy as np
+from sklearn.model_selection import train_test_split
+import tensorflow as tf
+
 pd.set_option('display.max_columns', 100)
 
 players = pd.read_csv('complete.csv')
-print(list(players))
+#print(list(players))
 """
 'ID', 'name', 'full_name', 
 'club', 'club_logo', 'special', 
@@ -67,11 +70,76 @@ print(list(players))
    'prefers_lcb', 'prefers_gk'
 """
 
-print(players[['full_name', 'age', 'nationality', 'overall', 'potential']])
+#print(players[['full_name', 'age', 'nationality', 'overall', 'potential']])
 
-competitions = pd.read_csv('results.csv')
-print(list(competitions))
+compt = pd.read_csv('results.csv') #competitions
+print(list(compt))
 """
 ['date', 'home_team', 'away_team', 'home_score', 'away_score', 'tournament', 'city', 'country', 'neutral']
 
 """
+
+# given home team-away team, predict scores
+######################## prepare the data ########################
+train, test = train_test_split(compt, test_size=0.2)
+train_x, train_y = pd.Categorical(train[['home_team', 'away_team']]), train[['home_score', 'away_score']]
+test_x, test_y = pd.Categorical(test[['home_team', 'away_team']]), test[['home_score', 'away_score']]
+
+######################## set learning variables ##################
+learning_rate = 0.0005
+epochs = 2000
+batch_size = 3
+
+######################## set some variables #######################
+x = tf.placeholder(tf.float32, [None, 2], name='x')  # 2 features
+y = tf.placeholder(tf.float32, [None, 2], name='y')  # 2 outputs
+
+# hidden layer 1
+W1 = tf.Variable(tf.truncated_normal([3, 10], stddev=0.03), name='W1')
+b1 = tf.Variable(tf.truncated_normal([10]), name='b1')
+
+# hidden layer 2
+W2 = tf.Variable(tf.truncated_normal([10, 3], stddev=0.03), name='W2')
+b2 = tf.Variable(tf.truncated_normal([3]), name='b2')
+
+'''
+######################## Activations, outputs ######################
+# output hidden layer 1
+hidden_out = tf.nn.relu(tf.add(tf.matmul(x, W1), b1))
+
+# total output
+y_ = tf.nn.relu(tf.add(tf.matmul(hidden_out, W2), b2))
+
+####################### Loss Function  #########################
+mse = tf.losses.mean_squared_error(y, y_)
+
+####################### Optimizer      #########################
+optimizer = tf.train.GradientDescentOptimizer(learning_rate=learning_rate).minimize(mse)
+
+###################### Initialize, Accuracy and Run #################
+# initialize variables
+init_op = tf.global_variables_initializer()
+
+# accuracy for the test set
+accuracy = tf.reduce_mean(tf.square(tf.subtract(y, y_)))  # or could use tf.losses.mean_squared_error
+
+# run
+with tf.Session() as sess:
+  writer = tf.summary.FileWriter('logs', sess.graph)
+
+  sess.run(init_op)
+  total_batch = int(len(y_train) / batch_size)
+  for epoch in range(epochs):
+    avg_cost = 0
+    for i in range(total_batch):
+      batch_x, batch_y = X_train[i * batch_size:min(i * batch_size + batch_size, len(X_train)), :], \
+                         y_train[i * batch_size:min(i * batch_size + batch_size, len(y_train)), :]
+      _, c = sess.run([optimizer, mse], feed_dict={x: batch_x, y: batch_y})
+      avg_cost += c / total_batch
+    if epoch % 10 == 0:
+      print 'Epoch:', (epoch + 1), 'cost =', '{:.3f}'.format(avg_cost)
+  print sess.run(mse, feed_dict={x: X_test, y: y_test})
+
+  writer.close()
+
+'''
